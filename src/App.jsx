@@ -1,14 +1,30 @@
 
-import { useEffect, useState } from "react";
-import { Connection, PublicKey, Transaction, SystemProgram } from "@solana/web3.js";
-import { useWallet, WalletProvider, ConnectionProvider } from "@solana/wallet-adapter-react";
-import { WalletModalProvider, WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { useState } from "react";
+import {
+  Connection,
+  PublicKey,
+  Transaction,
+  TransactionInstruction,
+  SystemProgram,
+} from "@solana/web3.js";
+
+import {
+  useWallet,
+  WalletProvider,
+  ConnectionProvider,
+} from "@solana/wallet-adapter-react";
+
+import {
+  WalletModalProvider,
+  WalletMultiButton,
+} from "@solana/wallet-adapter-react-ui";
+
 import { WalletConnectWalletAdapter } from "@solana/wallet-adapter-walletconnect";
-import { memoInstruction } from "@solana/spl-memo";
+
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 const SOLANA_RPC = "https://api.devnet.solana.com";
-const RECIPIENT = new PublicKey("3hC4fUaa4VuK4dMpVDCodAfhH3UJKV8Kz1PxaK7PLe9c"); // Пример адреса
+const RECIPIENT = new PublicKey("3hC4fUaa4VuK4dMpVDCodAfhH3UJKV8Kz1PxaK7PLe9c"); // замените на нужный адрес
 const MEMO_TEXT = "Hello, World!";
 const LAMPORTS = 1000; // 0.000001 SOL
 
@@ -21,9 +37,19 @@ function Sender() {
 
     const connection = new Connection(SOLANA_RPC);
 
+    const memoIx = new TransactionInstruction({
+      keys: [],
+      programId: new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+      data: Buffer.from(MEMO_TEXT, "utf-8"),
+    });
+
     const tx = new Transaction().add(
-      SystemProgram.transfer({ fromPubkey: publicKey, toPubkey: RECIPIENT, lamports: LAMPORTS }),
-      memoInstruction(MEMO_TEXT)
+      SystemProgram.transfer({
+        fromPubkey: publicKey,
+        toPubkey: RECIPIENT,
+        lamports: LAMPORTS,
+      }),
+      memoIx
     );
 
     try {
