@@ -1,6 +1,6 @@
 
 {
-  "name": "solana-messenger",
+  "name": "cryptogram",
   "version": "1.0.0",
   "scripts": {
     "dev": "vite",
@@ -8,11 +8,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@solana/spl-memo": "^0.1.9",
+    "@solana/wallet-adapter-react": "^0.18.4",
+    "@solana/wallet-adapter-react-ui": "^0.9.12",
+    "@solana/wallet-adapter-walletconnect": "^0.10.3",
+    "@solana/web3.js": "^1.80.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "vite": "^4.0.0",
-    "@vitejs/plugin-react": "^4.0.0"
+    "@vitejs/plugin-react": "^4.0.0",
+    "vite": "^4.0.0"
   }
 }
