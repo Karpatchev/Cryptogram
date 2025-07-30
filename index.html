@@ -1,0 +1,152 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cryptogram SOL Transfer</title>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@latest/lib/index.iife.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .input-group { margin: 10px 0; }
+        label { display: block; margin-bottom: 5px; }
+        input, textarea { width: 100%; padding: 8px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #status { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>SOL Transfer with Phantom Wallet</h1>
+    <div class="input-group">
+        <label for="amount">Amount (SOL):</label>
+        <input type="number" id="amount" step="0.0001" min="0" required>
+    </div>
+    <div class="input-group">
+        <label for="recipient">Recipient Address:</label>
+        <input type="text" id="recipient" required>
+    </div>
+    <div class="input-group">
+        <label for="memo">Memo (optional, max 256 bytes):</label>
+        <textarea id="memo" maxlength="256"></textarea>
+    </div>
+    <button onclick="connectWallet()">Connect Phantom Wallet</button>
+    <button onclick="sendTransaction()" id="sendBtn" disabled>Send SOL</button>
+    <div id="status"></div>
+
+    <script>
+        let provider;
+        const statusDiv = document.getElementById('status');
+        const sendBtn = document.getElementById('sendBtn');
+
+        async function connectWallet() {
+            try {
+                if ("solana" in window) {
+                    provider = window.solana;
+                    await provider.connect();
+                    if (provider.isPhantom) {
+                        statusDiv.innerText = `Connected to Phantom Wallet: ${provider.publicKey.toString()}`;
+                        sendBtn.disabled = false;
+                    } else {
+                        statusDiv.innerText = "Please use Phantom Wallet.";
+                    }
+                } else {
+                    statusDiv.innerText = "Please install Phantom Wallet: https://phantom.app/";
+                }
+            } catch (error) {
+                statusDiv.innerText = `Error connecting wallet: ${error.message}`;
+            }
+        }
+
+        async function sendTransaction() {
+            try {
+                const amount = parseFloat(document.getElementById('amount').value);
+                const recipient = document.getElementById('recipient').value;
+                const memo = document.getElementById('memo').value;
+
+                if (!amount || !recipient) {
+                    statusDiv.innerText = "Please fill in amount and recipient address.";
+                    return;
+                }
+
+                if (memo.length > 256) {
+                    statusDiv.innerText = "Memo exceeds 256 bytes.";
+                    return;
+                }
+
+                const connection = new solanaWeb3.Connection(solanaWeb3.clusterApiUrl('mainnet-beta'), 'confirmed');
+                const lamports = amount * solanaWeb3.LAMPORTS_PER_SOL;
+
+                const transaction = new solanaWeb3.Transaction().add(
+                    solanaWeb3.SystemProgram.transfer({
+                        fromPubkey: provider.publicKey,
+                        toPubkey: new solanaWeb3.PublicKey(recipient),
+                        lamports: lamports
+                    })
+                );
+
+                if (memo) {
+                    transaction.add(
+                        new solanaWeb3.TransactionInstruction({
+                            keys: [],
+                            programId: new solanaWeb3.PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'),
+                            data: Buffer.from(memo)
+                        })
+                    );
+                }
+
+                const { blockhash } = await connection.getLatestBlockhash();
+                transaction.recentBlockhash = blockhash;
+                transaction.feePayer = provider.publicKey;
+
+                const signed = await provider.signTransaction(transaction);
+                const txid = await connection.sendRawTransaction(signed.serialize());
+                await connection.confirmTransaction(txid);
+
+                statusDiv.innerText = `Transaction successful! TXID: ${txid}`;
+            } catch (error) {
+                statusDiv.innerText = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
