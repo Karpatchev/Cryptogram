@@ -1,95 +1,94 @@
 
 import { useState } from "react";
+import { Connection, PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import {
-  Connection,
-  PublicKey,
-  Transaction,
-  TransactionInstruction,
-  SystemProgram,
-} from "@solana/web3.js";
-
-import {
-  useWallet,
-  WalletProvider,
   ConnectionProvider,
+  WalletProvider,
+  useWallet,
 } from "@solana/wallet-adapter-react";
-
-import {
-  WalletModalProvider,
-  WalletMultiButton,
-} from "@solana/wallet-adapter-react-ui";
-
-import { WalletConnectWalletAdapter } from "@solana/wallet-adapter-walletconnect";
-
+import { WalletModalProvider, WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-const SOLANA_RPC = "https://api.devnet.solana.com";
-const RECIPIENT = new PublicKey("3hC4fUaa4VuK4dMpVDCodAfhH3UJKV8Kz1PxaK7PLe9c"); // замените на нужный адрес
-const MEMO_TEXT = "Hello, World!";
-const LAMPORTS = 1000; // 0.000001 SOL
+const SendSolWithMemo = () => {
+  const { publicKey, sendTransaction } = useWallet();
+  const [receiver, setReceiver] = useState("FXMFb79zupLWkUc19wb3UjzU6GvdekkVoqnSPUSMLPWq");
+  const [amount, setAmount] = useState("0.000000001");
+  const [memo, setMemo] = useState("Hello, World!");
+  const connection = new Connection("https://api.mainnet-beta.solana.com");
 
-function Sender() {
-  const { publicKey, sendTransaction, connected } = useWallet();
-  const [status, setStatus] = useState("");
+  const handleSend = async () => {
+    if (!publicKey) return alert("Сначала подключите Phantom");
 
-  const sendMessage = async () => {
-    if (!publicKey || !connected) return;
+    const toPubkey = new PublicKey(receiver);
+    const lamports = Math.floor(parseFloat(amount) * 1e9);
+    const memoProgramId = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 
-    const connection = new Connection(SOLANA_RPC);
-
-    const memoIx = new TransactionInstruction({
-      keys: [],
-      programId: new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
-      data: Buffer.from(MEMO_TEXT, "utf-8"),
-    });
-
-    const tx = new Transaction().add(
+    const transaction = new Transaction().add(
       SystemProgram.transfer({
         fromPubkey: publicKey,
-        toPubkey: RECIPIENT,
-        lamports: LAMPORTS,
+        toPubkey,
+        lamports,
       }),
-      memoIx
+      {
+        keys: [],
+        programId: memoProgramId,
+        data: Buffer.from(memo),
+      }
     );
 
     try {
-      setStatus("Поднесите Tangem и подтвердите...");
-      const signature = await sendTransaction(tx, connection);
-      await connection.confirmTransaction(signature, "confirmed");
-      setStatus("✅ Успешно отправлено! Транзакция: " + signature);
+      const signature = await sendTransaction(transaction, connection);
+      alert("Успешно отправлено! Транзакция: " + signature);
     } catch (err) {
-      console.error(err);
-      setStatus("❌ Ошибка: " + err.message);
+      alert("Ошибка: " + err.message);
     }
   };
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <h1 className="text-xl mb-4">📤 Отправка сообщения через Memo</h1>
-      <WalletMultiButton className="mb-4" />
-      <button
-        onClick={sendMessage}
-        disabled={!connected}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-      >
-        Отправить "Hello, World!"
-      </button>
-      {status && <p className="mt-4 text-sm">{status}</p>}
+    <div style={{ padding: 20 }}>
+      <WalletMultiButton />
+      <div style={{ marginTop: 20 }}>
+        <input
+          type="text"
+          value={receiver}
+          onChange={(e) => setReceiver(e.target.value)}
+          placeholder="Получатель"
+          style={{ width: "100%", marginBottom: 10 }}
+        />
+        <input
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Сумма в SOL"
+          style={{ width: "100%", marginBottom: 10 }}
+        />
+        <input
+          type="text"
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          placeholder="Memo"
+          style={{ width: "100%", marginBottom: 10 }}
+        />
+        <button onClick={handleSend} style={{ padding: 10, width: "100%" }}>
+          Отправить
+        </button>
+      </div>
     </div>
   );
-}
+};
 
-export default function App() {
-  const endpoint = SOLANA_RPC;
-  const wallets = [new WalletConnectWalletAdapter({ network: "devnet" })];
-
+const App = () => {
+  const wallets = [new PhantomWalletAdapter()];
   return (
-    <ConnectionProvider endpoint={endpoint}>
+    <ConnectionProvider endpoint="https://api.mainnet-beta.solana.com">
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
-          <Sender />
+          <SendSolWithMemo />
         </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );
-}
+};
+
+export default App;
